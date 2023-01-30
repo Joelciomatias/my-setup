@@ -1,0 +1,102 @@
+version: '2'
+
+services:
+  mysql-local:
+    image: mysql:5.7
+    container_name: mysql-local
+    restart: unless-stopped
+    environment:
+      - MYSQL_ROOT_PASSWORD=123456
+    ports:
+      - 3306:3306
+    networks:
+      - db_sharing
+    command: --sql_mode=""
+
+  postgres-local:
+    image: postgres
+    container_name: postgres-local
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: root
+      POSTGRES_PASSWORD: 123456
+      POSTGRES_DB: 'dev'
+    ports:
+      - 5432:5432
+    networks:
+      - db_sharing
+
+  rabbit-local:
+    image: rabbitmq:3.7.15-management
+    container_name: rabbit-local
+    hostname: localhost
+    restart: unless-stopped
+    ports:
+      - 15672:15672
+      - 5672:5672
+
+  redis-local:
+    image: redis
+    container_name: redis-local
+    restart: unless-stopped
+    ports:
+      - 6379:6379
+    networks:
+      - db_sharing
+
+  mongo-local:
+    image: mongo
+    container_name: mongo-local
+    hostname: localhost
+    restart: unless-stopped
+    ports:
+      - 27017:27017
+    volumes:
+      - mongodb_data:/data/db
+
+  zookeeper:
+    container_name: zookeeper
+    image: wurstmeister/zookeeper:3.4.6
+    restart: unless-stopped
+    ports:
+      - "2181:2181"
+
+  kafka:
+    container_name: kafka
+    image: wurstmeister/kafka:2.12-2.3.0
+    restart: unless-stopped
+    ports:
+      - "9092:9092"
+      - "9094:9094"
+    depends_on:
+      - zookeeper
+    environment:
+      KAFKA_BROKER_ID: 1
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://localhost:9092
+      KAFKA_LISTENERS: PLAINTEXT://0.0.0.0:9092
+      KAFKA_HEAP_OPTS: "-Xms1G -Xmx4G"
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_JMX_OPTS: "-Dcom.sun.management.jmxremote -Dcom.sun.management.jmxremote.authenticate=false -Dcom.sun.management.jmxremote.ssl=false -Djava.rmi.server.hostname=localhost -Dcom.sun.management.jmxremote.rmi.port=9094 -Dcom.sun.management.jmxremote.local.only=false -Dcom.sun.management.jmxremote.port=9094 -Djava.net.preferIPv4Stack=true"
+      JMX_PORT: 9094
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+
+  kafka-manager:
+    container_name: kafka-manager
+    image: hlebalbau/kafka-manager:2.0.0.2
+    restart: unless-stopped
+    depends_on:
+      - zookeeper
+      - kafka
+    command: -Dconfig.file=/kafka-manager/conf/application.conf -Dapplication.home=/kafkamanager
+    environment:
+      - ZK_HOSTS=zookeeper
+    ports:
+      - "9000:9000"
+
+networks:
+  db_sharing:
+
+volumes:
+  mongodb_data:
